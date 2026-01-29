@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+
+{% block title %}Search Precedents - Precedent Finder{% endblock %}
+
+{% block extra_css %}
+<style>
+    .hero-section {
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+
+    .hero-section h1 {
+        font-size: 2.5rem;
+        color: #333;
+        margin-bottom: 1rem;
+    }
+
+    .hero-section p {
+        font-size: 1.1rem;
+        color: #666;
+        margin-bottom: 2rem;
+    }
+
+    .search-container {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .search-box {
+        flex: 1;
+        min-width: 250px;
+        max-width: 600px;
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .search-box input {
+        flex: 1;
+        padding: 0.75rem 1rem;
+        border: 2px solid #ddd;
+        border-radius: 5px;
+        font-size: 1rem;
+        transition: border-color 0.3s ease;
+    }
+
+    .search-box input:focus {
+        outline: none;
+        border-color: #667eea;
+    }
+
+    .search-box button {
+        padding: 0.75rem 2rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: transform 0.2s ease;
+    }
+
+    .search-box button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .search-box button:active {
+        transform: translateY(0);
+    }
+
+    .results-container {
+        margin-top: 2rem;
+    }
+
+    .loading {
+        text-align: center;
+        color: #667eea;
+        font-size: 1.1rem;
+        padding: 2rem;
+    }
+
+    .error-message {
+        background: #fee;
+        border-left: 4px solid #f44;
+        padding: 1rem;
+        border-radius: 5px;
+        color: #c33;
+        margin-bottom: 1rem;
+    }
+
+    .success-message {
+        background: #efe;
+        border-left: 4px solid #4f4;
+        padding: 1rem;
+        border-radius: 5px;
+        color: #3c3;
+        margin-bottom: 1rem;
+    }
+
+    .results-info {
+        color: #666;
+        margin-bottom: 1.5rem;
+        font-size: 1rem;
+    }
+
+    .result-item {
+        background: #f9f9f9;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .result-item:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        transform: translateX(5px);
+    }
+
+    .result-item h3 {
+        color: #667eea;
+        margin-bottom: 0.5rem;
+        font-size: 1.3rem;
+    }
+
+    .result-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+        color: #777;
+    }
+
+    .result-meta span {
+        background: #e8e8ff;
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+    }
+
+    .result-description {
+        color: #555;
+        line-height: 1.6;
+        margin-bottom: 0.5rem;
+    }
+
+    .result-keywords {
+        color: #999;
+        font-size: 0.85rem;
+        font-style: italic;
+    }
+
+    .no-results {
+        text-align: center;
+        color: #999;
+        padding: 2rem;
+        background: #f9f9f9;
+        border-radius: 5px;
+    }
+
+    .example-searches {
+        background: #f0f4ff;
+        border-radius: 5px;
+        padding: 1.5rem;
+        margin-top: 2rem;
+    }
+
+    .example-searches h3 {
+        color: #667eea;
+        margin-bottom: 1rem;
+    }
+
+    .example-searches a {
+        display: inline-block;
+        background: white;
+        border: 1px solid #667eea;
+        color: #667eea;
+        padding: 0.5rem 1rem;
+        margin: 0.5rem 0.5rem 0.5rem 0;
+        border-radius: 20px;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .example-searches a:hover {
+        background: #667eea;
+        color: white;
+    }
+
+    @media (max-width: 768px) {
+        .hero-section h1 {
+            font-size: 1.8rem;
+        }
+
+        .search-box {
+            flex-direction: column;
+        }
+
+        .search-box input,
+        .search-box button {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="hero-section">
+    <h1>🔍 Precedent Finder</h1>
+    <p>Search through our database of legal precedents to find relevant case law.</p>
+</div>
+
+<div class="search-container">
+    <div class="search-box">
+        <input 
+            type="text" 
+            id="searchInput" 
+            placeholder="Search by case name, number, court, or keywords..."
+            autocomplete="off"
+        >
+        <button id="searchBtn">Search</button>
+    </div>
+</div>
+
+<div id="messageContainer"></div>
+
+<div id="resultsContainer" class="results-container" style="display: none;">
+</div>
+
+<div class="example-searches">
+    <h3>Quick Search Examples:</h3>
+    <a href="#" onclick="performSearch('Smith'); return false;">Smith v. Johnson</a>
+    <a href="#" onclick="performSearch('contract'); return false;">Contract Law</a>
+    <a href="#" onclick="performSearch('Supreme Court'); return false;">Supreme Court</a>
+    <a href="#" onclick="performSearch('2023'); return false;">Recent Cases</a>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const searchInput = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const resultsContainer = document.getElementById('resultsContainer');
+    const messageContainer = document.getElementById('messageContainer');
+
+    // Search on button click
+    searchBtn.addEventListener('click', performSearch);
+
+    // Search on Enter key
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            performSearch();
+        }
+    });
+
+    function performSearch(query = null) {
+        const q = query || searchInput.value.trim();
+
+        if (!q) {
+            showMessage('Please enter a search query.', 'error');
+            resultsContainer.style.display = 'none';
+            return;
+        }
+
+        searchInput.value = q;
+        showLoading();
+
+        fetch(`/api/search?q=${encodeURIComponent(q)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showMessage(data.error, 'error');
+                    resultsContainer.style.display = 'none';
+                    return;
+                }
+
+                displayResults(data.results, q);
+            })
+            .catch(error => {
+                showMessage('An error occurred: ' + error.message, 'error');
+                resultsContainer.style.display = 'none';
+            });
+    }
+
+    function showLoading() {
+        messageContainer.innerHTML = '';
+        resultsContainer.innerHTML = '<div class="loading">🔍 Searching...</div>';
+        resultsContainer.style.display = 'block';
+    }
+
+    function showMessage(message, type) {
+        const className = type === 'error' ? 'error-message' : 'success-message';
+        messageContainer.innerHTML = `<div class="${className}">${message}</div>`;
+    }
+
+    function displayResults(results, query) {
+        messageContainer.innerHTML = '';
+
+        if (results.length === 0) {
+            resultsContainer.innerHTML = `
+                <div class="results-info">No results found for "<strong>${escapeHtml(query)}</strong>"</div>
+                <div class="no-results">
+                    <p>Try searching for different keywords or browse our example searches above.</p>
+                </div>
+            `;
+            resultsContainer.style.display = 'block';
+            return;
+        }
+
+        let html = `<div class="results-info">Found ${results.length} result(s) for "<strong>${escapeHtml(query)}</strong>"</div>`;
+
+        results.forEach(result => {
+            html += `
+                <div class="result-item">
+                    <h3>${escapeHtml(result.title)}</h3>
+                    <div class="result-meta">
+                        <span>📋 Case: ${escapeHtml(result.case_number)}</span>
+                        <span>📅 Year: ${result.year}</span>
+                        <span>⚖️ Court: ${escapeHtml(result.court)}</span>
+                    </div>
+                    <div class="result-description">
+                        ${escapeHtml(result.description)}
+                    </div>
+                    ${result.keywords ? `<div class="result-keywords">Keywords: ${escapeHtml(result.keywords)}</div>` : ''}
+                </div>
+            `;
+        });
+
+        resultsContainer.innerHTML = html;
+        resultsContainer.style.display = 'block';
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Focus on search input on page load
+    window.addEventListener('load', () => {
+        searchInput.focus();
+    });
+</script>
+{% endblock %}
