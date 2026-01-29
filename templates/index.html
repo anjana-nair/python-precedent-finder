@@ -23,18 +23,52 @@
 
     .search-container {
         display: flex;
+        flex-direction: column;
         gap: 1rem;
         margin-bottom: 2rem;
-        flex-wrap: wrap;
-        justify-content: center;
+        align-items: center;
     }
 
     .search-box {
-        flex: 1;
-        min-width: 250px;
-        max-width: 600px;
+        position: relative;
         display: flex;
         gap: 0.5rem;
+        min-width: 250px;
+        max-width: 600px;
+        width: 100%;
+    }
+
+    .filters-container {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        background: #f9f9f9;
+        padding: 1rem;
+        border-radius: 5px;
+        width: 100%;
+        max-width: 800px;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .filter-group label {
+        font-size: 0.9rem;
+        color: #555;
+        font-weight: bold;
+    }
+
+    .filter-group select,
+    .filter-group input {
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 3px;
+        font-size: 0.9rem;
     }
 
     .search-box input {
@@ -69,6 +103,37 @@
 
     .search-box button:active {
         transform: translateY(0);
+    }
+
+    .suggestions {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #ddd;
+        border-top: none;
+        border-radius: 0 0 5px 5px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+    }
+
+    .suggestions div {
+        padding: 0.75rem 1rem;
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
+    }
+
+    .suggestions div:hover,
+    .suggestions div.active {
+        background: #f0f8ff;
+    }
+
+    .suggestions div:last-child {
+        border-bottom: none;
     }
 
     .results-container {
@@ -191,6 +256,35 @@
         color: white;
     }
 
+    .pagination {
+        display: flex;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-top: 2rem;
+        flex-wrap: wrap;
+    }
+
+    .pagination button {
+        padding: 0.5rem 1rem;
+        border: 1px solid #667eea;
+        background: white;
+        color: #667eea;
+        border-radius: 3px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .pagination button:hover,
+    .pagination button.active {
+        background: #667eea;
+        color: white;
+    }
+
+    .pagination button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
     @media (max-width: 768px) {
         .hero-section h1 {
             font-size: 1.8rem;
@@ -210,19 +304,45 @@
 
 {% block content %}
 <div class="hero-section">
-    <h1>🔍 Precedent Finder</h1>
-    <p>Search through our database of legal precedents to find relevant case law.</p>
+    <h1>🔍 Indian Precedent Finder</h1>
+    <p>Search through our database of Indian legal precedents to find relevant case law from the Supreme Court and High Courts.</p>
 </div>
 
 <div class="search-container">
     <div class="search-box">
-        <input 
-            type="text" 
-            id="searchInput" 
-            placeholder="Search by case name, number, court, or keywords..."
+        <input
+            type="text"
+            id="searchInput"
+            placeholder="Search by case name, section, article, court, or keywords..."
             autocomplete="off"
         >
+        <div id="suggestions" class="suggestions"></div>
         <button id="searchBtn">Search</button>
+    </div>
+    <div class="filters-container">
+        <div class="filter-group">
+            <label for="sortSelect">Sort by:</label>
+            <select id="sortSelect">
+                <option value="year">Year</option>
+                <option value="title">Title</option>
+                <option value="court">Court</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="orderSelect">Order:</label>
+            <select id="orderSelect">
+                <option value="desc">Descending</option>
+                <option value="asc">Ascending</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="yearFilter">Year:</label>
+            <input type="number" id="yearFilter" placeholder="e.g. 2023">
+        </div>
+        <div class="filter-group">
+            <label for="courtFilter">Court:</label>
+            <input type="text" id="courtFilter" placeholder="e.g. Supreme Court">
+        </div>
     </div>
 </div>
 
@@ -233,10 +353,10 @@
 
 <div class="example-searches">
     <h3>Quick Search Examples:</h3>
-    <a href="#" onclick="performSearch('Smith'); return false;">Smith v. Johnson</a>
-    <a href="#" onclick="performSearch('contract'); return false;">Contract Law</a>
-    <a href="#" onclick="performSearch('Supreme Court'); return false;">Supreme Court</a>
-    <a href="#" onclick="performSearch('2023'); return false;">Recent Cases</a>
+    <a href="#" onclick="performSearch('Order 21'); return false;">Execution (CPC)</a>
+    <a href="#" onclick="performSearch('Section 190'); return false;">Cognizance (CrPC)</a>
+    <a href="#" onclick="performSearch('appeals'); return false;">Appeals (CPC)</a>
+    <a href="#" onclick="performSearch('Article 21'); return false;">Right to Life</a>
 </div>
 {% endblock %}
 
@@ -246,18 +366,67 @@
     const searchBtn = document.getElementById('searchBtn');
     const resultsContainer = document.getElementById('resultsContainer');
     const messageContainer = document.getElementById('messageContainer');
+    const suggestionsDiv = document.getElementById('suggestions');
+    const sortSelect = document.getElementById('sortSelect');
+    const orderSelect = document.getElementById('orderSelect');
+    const yearFilter = document.getElementById('yearFilter');
+    const courtFilter = document.getElementById('courtFilter');
+
+    let currentPage = 1;
+    let currentSuggestions = [];
+    let selectedSuggestionIndex = -1;
 
     // Search on button click
-    searchBtn.addEventListener('click', performSearch);
+    searchBtn.addEventListener('click', () => performSearch());
 
-    // Search on Enter key
+    // Search on Enter key in search input
     searchInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
-            performSearch();
+            if (selectedSuggestionIndex >= 0) {
+                selectSuggestion(currentSuggestions[selectedSuggestionIndex]);
+            } else {
+                performSearch();
+            }
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            navigateSuggestions(1);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            navigateSuggestions(-1);
         }
     });
 
-    function performSearch(query = null) {
+    // Fetch suggestions on input
+    searchInput.addEventListener('input', () => {
+        const query = searchInput.value.trim();
+        if (query.length >= 2) {
+            fetchSuggestions(query);
+        } else {
+            hideSuggestions();
+        }
+    });
+
+    // Hide suggestions when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!searchInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+            hideSuggestions();
+        }
+    });
+
+    // Trigger search on filter changes (with debounce)
+    let debounceTimer;
+    [sortSelect, orderSelect, yearFilter, courtFilter].forEach(element => {
+        element.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                if (searchInput.value.trim()) {
+                    performSearch();
+                }
+            }, 500);
+        });
+    });
+
+    function performSearch(query = null, page = 1) {
         const q = query || searchInput.value.trim();
 
         if (!q) {
@@ -267,9 +436,26 @@
         }
 
         searchInput.value = q;
+        currentPage = page;
         showLoading();
 
-        fetch(`/api/search?q=${encodeURIComponent(q)}`)
+        // Build query parameters
+        const params = new URLSearchParams({
+            q: q,
+            page: page,
+            sort: sortSelect.value,
+            order: orderSelect.value,
+            per_page: 20
+        });
+
+        if (yearFilter.value) {
+            params.append('year', yearFilter.value);
+        }
+        if (courtFilter.value) {
+            params.append('court', courtFilter.value);
+        }
+
+        fetch(`/api/search?${params}`)
             .then(response => response.json())
             .then(data => {
                 if (data.error) {
@@ -278,12 +464,16 @@
                     return;
                 }
 
-                displayResults(data.results, q);
+                displayResults(data, q);
             })
             .catch(error => {
                 showMessage('An error occurred: ' + error.message, 'error');
                 resultsContainer.style.display = 'none';
             });
+    }
+
+    function changePage(page) {
+        performSearch(null, page);
     }
 
     function showLoading() {
@@ -297,7 +487,8 @@
         messageContainer.innerHTML = `<div class="${className}">${message}</div>`;
     }
 
-    function displayResults(results, query) {
+    function displayResults(data, query) {
+        const { results, total, page, per_page, pages } = data;
         messageContainer.innerHTML = '';
 
         if (results.length === 0) {
@@ -311,7 +502,7 @@
             return;
         }
 
-        let html = `<div class="results-info">Found ${results.length} result(s) for "<strong>${escapeHtml(query)}</strong>"</div>`;
+        let html = `<div class="results-info">Found ${total} result(s) for "<strong>${escapeHtml(query)}</strong>" (Page ${page} of ${pages})</div>`;
 
         results.forEach(result => {
             html += `
@@ -321,14 +512,31 @@
                         <span>📋 Case: ${escapeHtml(result.case_number)}</span>
                         <span>📅 Year: ${result.year}</span>
                         <span>⚖️ Court: ${escapeHtml(result.court)}</span>
+                        ${result.section ? `<span>📖 Section: ${escapeHtml(result.section)}</span>` : ''}
+                        ${result.article ? `<span>📄 Article: ${escapeHtml(result.article)}</span>` : ''}
                     </div>
                     <div class="result-description">
-                        ${escapeHtml(result.description)}
+                        ${highlightText(result.description, query)}
                     </div>
                     ${result.keywords ? `<div class="result-keywords">Keywords: ${escapeHtml(result.keywords)}</div>` : ''}
                 </div>
             `;
         });
+
+        // Add pagination
+        if (pages > 1) {
+            html += '<div class="pagination">';
+            if (page > 1) {
+                html += `<button onclick="changePage(${page - 1})">Previous</button>`;
+            }
+            for (let i = Math.max(1, page - 2); i <= Math.min(pages, page + 2); i++) {
+                html += `<button onclick="changePage(${i})" ${i === page ? 'class="active"' : ''}>${i}</button>`;
+            }
+            if (page < pages) {
+                html += `<button onclick="changePage(${page + 1})">Next</button>`;
+            }
+            html += '</div>';
+        }
 
         resultsContainer.innerHTML = html;
         resultsContainer.style.display = 'block';
@@ -338,6 +546,79 @@
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    function highlightText(text, query) {
+        const terms = query.split(' ').filter(t => t.length > 1);
+        let highlighted = escapeHtml(text);
+        terms.forEach(term => {
+            const regex = new RegExp(`(${escapeRegExp(term)})`, 'gi');
+            highlighted = highlighted.replace(regex, '<mark>$1</mark>');
+        });
+        return highlighted;
+    }
+
+    function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function fetchSuggestions(query) {
+        fetch(`/api/suggestions?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                currentSuggestions = data.suggestions || [];
+                selectedSuggestionIndex = -1;
+                displaySuggestions(currentSuggestions);
+            })
+            .catch(error => {
+                console.error('Error fetching suggestions:', error);
+                hideSuggestions();
+            });
+    }
+
+    function displaySuggestions(suggestions) {
+        if (suggestions.length === 0) {
+            hideSuggestions();
+            return;
+        }
+
+        suggestionsDiv.innerHTML = '';
+        suggestions.forEach((suggestion, index) => {
+            const div = document.createElement('div');
+            div.textContent = suggestion;
+            div.addEventListener('click', () => selectSuggestion(suggestion));
+            div.addEventListener('mouseenter', () => highlightSuggestion(index));
+            suggestionsDiv.appendChild(div);
+        });
+        suggestionsDiv.style.display = 'block';
+    }
+
+    function hideSuggestions() {
+        suggestionsDiv.style.display = 'none';
+        selectedSuggestionIndex = -1;
+    }
+
+    function selectSuggestion(suggestion) {
+        searchInput.value = suggestion;
+        hideSuggestions();
+        performSearch(suggestion);
+    }
+
+    function navigateSuggestions(direction) {
+        if (currentSuggestions.length === 0) return;
+
+        selectedSuggestionIndex += direction;
+        if (selectedSuggestionIndex < 0) selectedSuggestionIndex = currentSuggestions.length - 1;
+        if (selectedSuggestionIndex >= currentSuggestions.length) selectedSuggestionIndex = 0;
+
+        highlightSuggestion(selectedSuggestionIndex);
+    }
+
+    function highlightSuggestion(index) {
+        const items = suggestionsDiv.children;
+        for (let i = 0; i < items.length; i++) {
+            items[i].classList.toggle('active', i === index);
+        }
     }
 
     // Focus on search input on page load
